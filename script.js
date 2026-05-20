@@ -1,0 +1,534 @@
+const ADMIN_PASSWORD = "0625";
+
+let isAdmin = false;
+
+const generateBtn =
+  document.getElementById("generateBtn");
+
+const clearBtn =
+  document.getElementById("clearBtn");
+
+const raidInput =
+  document.getElementById("raidInput");
+
+const cardsContainer =
+  document.getElementById("cardsContainer");
+
+const daySelect =
+  document.getElementById("daySelect");
+
+const adminBtn =
+  document.getElementById("adminBtn");
+
+const adminControls =
+  document.getElementById("adminControls");
+
+/* 전체 데이터 */
+let raidData = {};
+
+/* 저장 */
+function saveData() {
+
+  localStorage.setItem(
+    "raidData",
+    JSON.stringify(raidData)
+  );
+}
+
+/* 불러오기 */
+function loadData() {
+
+  const saved =
+    localStorage.getItem("raidData");
+
+  if (!saved) return;
+
+  raidData =
+    JSON.parse(saved);
+
+  renderAllDays();
+}
+
+/* 관리자 로그인 */
+adminBtn.addEventListener("click", () => {
+
+  if (isAdmin) {
+
+    isAdmin = false;
+
+    adminControls.classList.add("hidden");
+
+    adminBtn.innerText =
+      "🔒 관리자 로그인";
+
+    renderAllDays();
+
+    return;
+  }
+
+  const password =
+    prompt("관리자 비밀번호 입력");
+
+  if (
+    password === ADMIN_PASSWORD
+  ) {
+
+    isAdmin = true;
+
+    adminControls.classList.remove("hidden");
+
+    adminBtn.innerText =
+      "🟢 관리자 모드";
+
+    renderAllDays();
+
+  } else {
+
+    alert("비밀번호가 틀렸습니다.");
+  }
+
+});
+
+/* 공대 추가 */
+generateBtn.addEventListener("click", () => {
+
+  const text =
+    raidInput.value;
+
+  const selectedDay =
+    daySelect.value;
+
+  if (!text.trim()) {
+
+    alert("내용을 입력하세요.");
+    return;
+  }
+
+  if (!raidData[selectedDay]) {
+    raidData[selectedDay] = [];
+  }
+
+  const raids =
+    parseRaidText(text);
+
+  raids.forEach((raid, index) => {
+
+    raid.order =
+      raidData[selectedDay].length + index + 1;
+
+  });
+
+  raidData[selectedDay]
+    .push(...raids);
+
+  sortRaids(selectedDay);
+
+  renderAllDays();
+
+  saveData();
+
+  raidInput.value = "";
+});
+
+/* 전체 초기화 */
+clearBtn.addEventListener("click", () => {
+
+  const check =
+    confirm("전체 공대를 삭제할까요?");
+
+  if (!check) return;
+
+  raidData = {};
+
+  renderAllDays();
+
+  saveData();
+});
+
+/* 공대 분석 */
+function parseRaidText(text) {
+
+  const lines = text
+    .split("\n")
+    .map(v => v.trim())
+    .filter(v => v);
+
+  const raids = [];
+
+  let currentRaid = null;
+
+  lines.forEach(line => {
+
+    const hasNickname =
+      line.includes("@");
+
+    if (!hasNickname) {
+
+      currentRaid = {
+        order: 0,
+        title: line,
+        dealers: [],
+        supports: []
+      };
+
+      raids.push(currentRaid);
+
+      return;
+    }
+
+    if (!currentRaid) return;
+
+    if (
+      line.includes("딜")
+    ) {
+
+      const members =
+        extractMembers(line);
+
+      currentRaid.dealers.push(...members);
+
+      return;
+    }
+
+    if (
+      line.includes("폿")
+    ) {
+
+      const members =
+        extractMembers(line);
+
+      currentRaid.supports.push(...members);
+
+      return;
+    }
+
+    const members =
+      extractMembers(line);
+
+    members.forEach(member => {
+
+      if (
+        member.includes("랏폿")
+      ) {
+
+        currentRaid.supports.push(member);
+
+      } else {
+
+        currentRaid.dealers.push(member);
+      }
+
+    });
+
+  });
+
+  return raids;
+}
+
+/* 멤버 추출 */
+function extractMembers(line) {
+
+  return line
+
+    .replace(/딜/g, "")
+    .replace(/폿/g, "")
+
+    .replace(/\(/g, "")
+    .replace(/\)/g, "")
+
+    .replace(/\//g, " ")
+
+    .replace(/:/g, "")
+    .replace(/,/g, " ")
+
+    .split(" ")
+
+    .map(v => v.trim())
+
+    .filter(v =>
+      v &&
+      v.length > 0
+    );
+}
+
+/* 정렬 */
+function sortRaids(day) {
+
+  raidData[day].sort((a, b) => {
+    return a.order - b.order;
+  });
+}
+
+/* 전체 렌더 */
+function renderAllDays() {
+
+  cardsContainer.innerHTML = "";
+
+  Object.keys(raidData).forEach(day => {
+
+    sortRaids(day);
+
+    const section =
+      document.createElement("div");
+
+    section.className =
+      "day-section";
+
+    section.innerHTML = `
+
+      <div class="day-header">
+
+        <h2 class="day-title">
+          📅 ${day}
+        </h2>
+
+        <button
+          class="save-image-btn"
+          onclick="saveDayAsImage('${day}')"
+        >
+          🖼️ 이미지 저장
+        </button>
+
+      </div>
+
+    `;
+
+    const grid =
+      document.createElement("div");
+
+    grid.className =
+      "cards-container";
+
+    raidData[day].forEach((raid, index) => {
+
+      const card =
+        createRaidCard(day, raid, index);
+
+      grid.appendChild(card);
+    });
+
+    section.appendChild(grid);
+
+    cardsContainer.appendChild(section);
+  });
+}
+
+/* 카드 생성 */
+function createRaidCard(day, raid, index) {
+
+  const card =
+    document.createElement("div");
+
+  card.className = "card";
+
+  const dealerHTML =
+    raid.dealers.map(member => `
+      <div class="member dealer">
+        ${member}
+      </div>
+    `).join("");
+
+  const supportHTML =
+    raid.supports.map(member => `
+      <div class="member support">
+        ${member}
+      </div>
+    `).join("");
+
+  card.innerHTML = `
+
+    <div class="card-header">
+
+      <div>
+
+        <div class="card-title">
+          🎮 ${raid.title}
+        </div>
+
+      </div>
+
+      <div class="raid-order">
+        ${raid.order}공대
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <div class="section-title">
+        ⚔️ 딜러 (${raid.dealers.length})
+      </div>
+
+      <div class="members">
+        ${dealerHTML || "<div>없음</div>"}
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <div class="section-title">
+        💚 서포터 (${raid.supports.length})
+      </div>
+
+      <div class="members">
+        ${supportHTML || "<div>없음</div>"}
+      </div>
+
+    </div>
+
+    ${
+      isAdmin
+      ? `
+      <div class="card-buttons">
+
+        <button class="edit-btn">
+          수정
+        </button>
+
+        <button class="delete-btn">
+          삭제
+        </button>
+
+      </div>
+      `
+      : ""
+    }
+
+  `;
+
+  if (isAdmin) {
+
+    const editBtn =
+      card.querySelector(".edit-btn");
+
+    editBtn.addEventListener("click", () => {
+      editCard(day, raid);
+    });
+
+    const deleteBtn =
+      card.querySelector(".delete-btn");
+
+    deleteBtn.addEventListener("click", () => {
+
+      const check =
+        confirm("이 공대를 삭제할까요?");
+
+      if (!check) return;
+
+      raidData[day].splice(index, 1);
+
+      renderAllDays();
+
+      saveData();
+    });
+  }
+
+  return card;
+}
+
+/* 수정 */
+function editCard(day, raid) {
+
+  const newOrder =
+    prompt(
+      "공대 번호 수정",
+      raid.order
+    );
+
+  if (newOrder === null) return;
+
+  const newTitle =
+    prompt(
+      "레이드 제목 수정",
+      raid.title
+    );
+
+  if (newTitle === null) return;
+
+  const newDealers =
+    prompt(
+      "딜러 수정",
+      raid.dealers.join(" ")
+    );
+
+  if (newDealers === null) return;
+
+  const newSupports =
+    prompt(
+      "서폿 수정",
+      raid.supports.join(" ")
+    );
+
+  if (newSupports === null) return;
+
+  raid.order =
+    Number(newOrder);
+
+  raid.title =
+    newTitle;
+
+  raid.dealers =
+    newDealers
+      .split(" ")
+      .map(v => v.trim())
+      .filter(v => v);
+
+  raid.supports =
+    newSupports
+      .split(" ")
+      .map(v => v.trim())
+      .filter(v => v);
+
+  sortRaids(day);
+
+  renderAllDays();
+
+  saveData();
+}
+
+/* 이미지 저장 */
+async function saveDayAsImage(day) {
+
+  const sections =
+    document.querySelectorAll(".day-section");
+
+  let targetSection = null;
+
+  sections.forEach(section => {
+
+    const title =
+      section.querySelector(".day-title");
+
+    if (
+      title.innerText.includes(day)
+    ) {
+      targetSection = section;
+    }
+
+  });
+
+  if (!targetSection) return;
+
+  const canvas =
+    await html2canvas(targetSection, {
+
+      backgroundColor: "#1e1f22",
+
+      scale: 2
+    });
+
+  const link =
+    document.createElement("a");
+
+  link.download =
+    `${day} 공대 현황.png`;
+
+  link.href =
+    canvas.toDataURL("image/png");
+
+  link.click();
+}
+
+/* 시작 */
+loadData();

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>공대 카드 생성기</title>
+
+  <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+  <div class="app">
+
+    <!-- 헤더 -->
+    <header class="header">
+
+      <div class="header-top">
+
+        <div>
+
+          <h1>🎮 공대 카드 생성기</h1>
+
+          <p class="subtitle">
+            요일별 공대를 카드 형태로 관리할 수 있습니다.
+          </p>
+
+        </div>
+
+        <button
+          id="adminBtn"
+          class="admin-btn"
+        >
+          🔒 관리자 로그인
+        </button>
+
+      </div>
+
+    </header>
+
+    <!-- 관리자 전용 -->
+    <div
+      id="adminControls"
+      class="admin-controls hidden"
+    >
+
+      <!-- 상단 -->
+      <div class="top-controls">
+
+        <select id="daySelect">
+
+          <option value="월요일">월요일</option>
+          <option value="화요일">화요일</option>
+          <option value="수요일">수요일</option>
+          <option value="목요일">목요일</option>
+          <option value="금요일">금요일</option>
+          <option value="토요일">토요일</option>
+          <option value="일요일">일요일</option>
+
+        </select>
+
+      </div>
+
+      <!-- 입력 -->
+      <section class="input-section">
+
+        <textarea
+          id="raidInput"
+          placeholder="예시)
+
+종막 노말 : 8시 5분경
+딜 : 레드 @우연향 @폭풍룡
+폿 : @래나시엔
+
+4막 노말 :
+딜 : 레드 @우연향 @폭풍룡
+폿 : @래나시엔
+
+노르카 9시
+레드(폿) @르카치텔리 @폭풍룡"
+        ></textarea>
+
+        <div class="button-group">
+
+          <button id="generateBtn">
+            ➕ 공대 추가
+          </button>
+
+          <button id="clearBtn">
+            🗑️ 전체 초기화
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- 카드 영역 -->
+    <section
+      id="cardsContainer"
+      class="main-container"
+    ></section>
+
+  </div>
+
+  <script src="script.js"></script>
+
+  <!-- 이미지 저장 -->
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+</body>
+
+</html>
