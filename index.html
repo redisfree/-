@@ -1,122 +1,780 @@
-<!DOCTYPE html>
-<html lang="ko">
+const ADMIN_PASSWORD = "0625";
 
-<head>
+let isAdmin = false;
 
-  <meta charset="UTF-8" />
+const generateBtn =
+  document.getElementById("generateBtn");
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
+const clearBtn =
+  document.getElementById("clearBtn");
 
-  <title>공대 카드 생성기</title>
+const raidInput =
+  document.getElementById("raidInput");
 
-  <link rel="stylesheet" href="style.css">
+const cardsContainer =
+  document.getElementById("cardsContainer");
 
-</head>
+const daySelect =
+  document.getElementById("daySelect");
 
-<body>
+const adminBtn =
+  document.getElementById("adminBtn");
 
-  <div class="app">
+const adminControls =
+  document.getElementById("adminControls");
 
-    <!-- 헤더 -->
-    <header class="header">
+/* 명단 조회 */
+const memberInput =
+  document.getElementById("memberInput");
 
-      <div class="header-top">
+const searchBtn =
+  document.getElementById("searchBtn");
 
-        <div>
+const resultContainer =
+  document.getElementById("resultContainer");
 
-          <h1>🎮 공대 카드 생성기</h1>
+/* 데이터 */
+let raidData = {};
 
-          <p class="subtitle">
-            요일별 공대를 카드 형태로 관리할 수 있습니다.
-          </p>
+/* 저장 */
+function saveData() {
 
-        </div>
+  localStorage.setItem(
+    "raidData",
+    JSON.stringify(raidData)
+  );
+}
+
+/* 불러오기 */
+function loadData() {
+
+  const saved =
+    localStorage.getItem("raidData");
+
+  if (!saved) return;
+
+  raidData =
+    JSON.parse(saved);
+
+  renderAllDays();
+}
+
+/* 관리자 로그인 */
+adminBtn.addEventListener("click", () => {
+
+  if (isAdmin) {
+
+    isAdmin = false;
+
+    adminControls.classList.add("hidden");
+
+    adminBtn.innerText =
+      "🔒 관리자 로그인";
+
+    renderAllDays();
+
+    return;
+  }
+
+  const password =
+    prompt("관리자 비밀번호 입력");
+
+  if (
+    password === ADMIN_PASSWORD
+  ) {
+
+    isAdmin = true;
+
+    adminControls.classList.remove("hidden");
+
+    adminBtn.innerText =
+      "🟢 관리자 모드";
+
+    renderAllDays();
+
+  } else {
+
+    alert("비밀번호가 틀렸습니다.");
+  }
+
+});
+
+/* 공대 추가 */
+generateBtn.addEventListener("click", () => {
+
+  const text =
+    raidInput.value;
+
+  const selectedDay =
+    daySelect.value;
+
+  if (!text.trim()) {
+
+    alert("내용을 입력하세요.");
+    return;
+  }
+
+  if (!raidData[selectedDay]) {
+    raidData[selectedDay] = [];
+  }
+
+  const raids =
+    parseRaidText(text);
+
+  raids.forEach((raid, index) => {
+
+    raid.order =
+      raidData[selectedDay].length + index + 1;
+
+  });
+
+  raidData[selectedDay]
+    .push(...raids);
+
+  sortRaids(selectedDay);
+
+  renderAllDays();
+
+  saveData();
+
+  raidInput.value = "";
+});
+
+/* 전체 초기화 */
+clearBtn.addEventListener("click", () => {
+
+  const check =
+    confirm("전체 공대를 삭제할까요?");
+
+  if (!check) return;
+
+  raidData = {};
+
+  renderAllDays();
+
+  saveData();
+});
+
+/* 공대 분석 */
+function parseRaidText(text) {
+
+  const lines = text
+    .split("\n")
+    .map(v => v.trim())
+    .filter(v => v);
+
+  const raids = [];
+
+  let currentRaid = null;
+
+  lines.forEach(line => {
+
+    const hasNickname =
+      line.includes("@");
+
+    /* 제목 줄 */
+    if (!hasNickname) {
+
+      currentRaid = {
+        order: 0,
+        title: line,
+        dealers: [],
+        supports: []
+      };
+
+      raids.push(currentRaid);
+
+      return;
+    }
+
+    if (!currentRaid) return;
+
+    /* 딜러 줄 */
+    if (
+      line.startsWith("딜")
+    ) {
+
+      const members =
+        extractMembers(line);
+
+      currentRaid.dealers.push(...members);
+
+      return;
+    }
+
+    /* 서폿 줄 */
+    if (
+      line.startsWith("폿")
+    ) {
+
+      const members =
+        extractMembers(line);
+
+      currentRaid.supports.push(...members);
+
+      return;
+    }
+
+    /* 일반 줄 */
+    const members =
+      extractMembers(line);
+
+    currentRaid.dealers.push(...members);
+
+  });
+
+  return raids;
+}
+
+/* 멤버 추출 */
+function extractMembers(line) {
+
+  return line
+
+    .replace(/딜/g, "")
+    .replace(/폿/g, "")
+
+    .replace(/\(/g, "")
+    .replace(/\)/g, "")
+
+    .replace(/\//g, " ")
+
+    .replace(/:/g, "")
+    .replace(/,/g, " ")
+
+    .split(" ")
+
+    .map(v => v.trim())
+
+    .filter(v => {
+
+      if (!v) return false;
+
+      /* 공석 제거 */
+      if (
+        v === "랏딜" ||
+        v === "랏폿"
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+}
+
+/* 정렬 */
+function sortRaids(day) {
+
+  raidData[day].sort((a, b) => {
+    return a.order - b.order;
+  });
+}
+
+/* 전체 렌더 */
+function renderAllDays() {
+
+  cardsContainer.innerHTML = "";
+
+  Object.keys(raidData).forEach(day => {
+
+    sortRaids(day);
+
+    const section =
+      document.createElement("div");
+
+    section.className =
+      "day-section";
+
+    section.innerHTML = `
+
+      <div class="day-header">
+
+        <h2 class="day-title">
+          📅 ${day}
+        </h2>
 
         <button
-          id="adminBtn"
-          class="admin-btn"
+          class="save-image-btn"
+          onclick="saveDayAsImage('${day}')"
         >
-          🔒 관리자 로그인
+          🖼️ 이미지 저장
         </button>
 
       </div>
 
-    </header>
+    `;
 
-    <!-- 관리자 전용 -->
-    <div
-      id="adminControls"
-      class="admin-controls hidden"
-    >
+    const grid =
+      document.createElement("div");
 
-      <!-- 상단 -->
-      <div class="top-controls">
+    grid.className =
+      "cards-container";
 
-        <select id="daySelect">
+    raidData[day].forEach((raid, index) => {
 
-          <option value="월요일">월요일</option>
-          <option value="화요일">화요일</option>
-          <option value="수요일">수요일</option>
-          <option value="목요일">목요일</option>
-          <option value="금요일">금요일</option>
-          <option value="토요일">토요일</option>
-          <option value="일요일">일요일</option>
+      const card =
+        createRaidCard(day, raid, index);
 
-        </select>
+      grid.appendChild(card);
 
+    });
+
+    section.appendChild(grid);
+
+    cardsContainer.appendChild(section);
+
+  });
+
+}
+
+/* 카드 생성 */
+function createRaidCard(day, raid, index) {
+
+  const card =
+    document.createElement("div");
+
+  card.className = "card";
+
+  const dealerHTML =
+    raid.dealers.map(member => `
+      <div class="member dealer">
+        ${member}
+      </div>
+    `).join("");
+
+  const supportHTML =
+    raid.supports.map(member => `
+      <div class="member support">
+        ${member}
+      </div>
+    `).join("");
+
+  card.innerHTML = `
+
+    <div class="card-header">
+
+      <div class="card-title">
+        🎮 ${raid.title}
       </div>
 
-      <!-- 입력 -->
-      <section class="input-section">
-
-        <textarea
-          id="raidInput"
-          placeholder="예시)
-
-종막 노말 : 8시 5분경
-딜 : 레드 @우연향 @폭풍룡
-폿 : @래나시엔
-
-4막 노말 :
-딜 : 레드 @우연향 @폭풍룡
-폿 : @래나시엔
-
-노르카 9시
-레드(폿) @르카치텔리 @폭풍룡"
-        ></textarea>
-
-        <div class="button-group">
-
-          <button id="generateBtn">
-            ➕ 공대 추가
-          </button>
-
-          <button id="clearBtn">
-            🗑️ 전체 초기화
-          </button>
-
-        </div>
-
-      </section>
+      <div class="raid-order">
+        ${raid.order}공대
+      </div>
 
     </div>
 
-    <!-- 카드 영역 -->
-    <section
-      id="cardsContainer"
-      class="main-container"
-    ></section>
+    <div class="section">
 
-  </div>
+      <div class="section-title">
+        ⚔️ 딜러 (${raid.dealers.length})
+      </div>
 
-  <script src="script.js"></script>
+      <div class="members">
+        ${dealerHTML}
+      </div>
 
-  <!-- 이미지 저장 -->
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    </div>
 
-</body>
+    <div class="section">
 
-</html>
+      <div class="section-title">
+        💚 서포터 (${raid.supports.length})
+      </div>
+
+      <div class="members">
+        ${supportHTML}
+      </div>
+
+    </div>
+
+    ${
+      isAdmin
+      ? `
+      <div class="card-buttons">
+
+        <button class="edit-btn">
+          수정
+        </button>
+
+        <button class="delete-btn">
+          삭제
+        </button>
+
+      </div>
+      `
+      : ""
+    }
+
+  `;
+
+  if (isAdmin) {
+
+    const editBtn =
+      card.querySelector(".edit-btn");
+
+    editBtn.addEventListener("click", () => {
+      editCard(day, raid);
+    });
+
+    const deleteBtn =
+      card.querySelector(".delete-btn");
+
+    deleteBtn.addEventListener("click", () => {
+
+      const check =
+        confirm("이 공대를 삭제할까요?");
+
+      if (!check) return;
+
+      raidData[day].splice(index, 1);
+
+      renderAllDays();
+
+      saveData();
+
+    });
+
+  }
+
+  return card;
+}
+
+/* 수정 */
+function editCard(day, raid) {
+
+  const newOrder =
+    prompt(
+      "공대 번호 수정",
+      raid.order
+    );
+
+  if (newOrder === null) return;
+
+  const newTitle =
+    prompt(
+      "레이드 제목 수정",
+      raid.title
+    );
+
+  if (newTitle === null) return;
+
+  const newDealers =
+    prompt(
+      "딜러 수정",
+      raid.dealers.join(" ")
+    );
+
+  if (newDealers === null) return;
+
+  const newSupports =
+    prompt(
+      "서폿 수정",
+      raid.supports.join(" ")
+    );
+
+  if (newSupports === null) return;
+
+  raid.order =
+    Number(newOrder);
+
+  raid.title =
+    newTitle;
+
+  raid.dealers =
+    newDealers
+      .split(" ")
+      .map(v => v.trim())
+      .filter(v => v);
+
+  raid.supports =
+    newSupports
+      .split(" ")
+      .map(v => v.trim())
+      .filter(v => v);
+
+  sortRaids(day);
+
+  renderAllDays();
+
+  saveData();
+}
+
+/* 이미지 저장 */
+async function saveDayAsImage(day) {
+
+  const sections =
+    document.querySelectorAll(".day-section");
+
+  let targetSection = null;
+
+  sections.forEach(section => {
+
+    const title =
+      section.querySelector(".day-title");
+
+    if (
+      title.innerText.includes(day)
+    ) {
+      targetSection = section;
+    }
+
+  });
+
+  if (!targetSection) return;
+
+  const canvas =
+    await html2canvas(targetSection, {
+
+      backgroundColor: "#1e1f22",
+
+      scale: 2
+    });
+
+  const link =
+    document.createElement("a");
+
+  link.download =
+    `${day} 공대 현황.png`;
+
+  link.href =
+    canvas.toDataURL("image/png");
+
+  link.click();
+}
+
+/* ======================= */
+/* 탭 전환 */
+/* ======================= */
+
+const tabButtons =
+  document.querySelectorAll(".tab-btn");
+
+const pages =
+  document.querySelectorAll(".page");
+
+tabButtons.forEach(button => {
+
+  button.addEventListener("click", () => {
+
+    const target =
+      button.dataset.page;
+
+    tabButtons.forEach(btn => {
+      btn.classList.remove("active");
+    });
+
+    button.classList.add("active");
+
+    pages.forEach(page => {
+      page.classList.remove("active-page");
+    });
+
+    document
+      .getElementById(target)
+      .classList.add("active-page");
+
+  });
+
+});
+
+/* ======================= */
+/* 명단 검색 */
+/* ======================= */
+
+searchBtn.addEventListener("click", () => {
+
+  const keyword =
+    memberInput.value.trim();
+
+  if (!keyword) {
+
+    alert("닉네임을 입력하세요.");
+    return;
+  }
+
+  searchMember(keyword);
+
+});
+
+memberInput.addEventListener("keydown", e => {
+
+  if (e.key === "Enter") {
+    searchBtn.click();
+  }
+
+});
+
+function searchMember(keyword) {
+
+  resultContainer.innerHTML = "";
+
+  let found = false;
+
+  Object.keys(raidData).forEach(day => {
+
+    const matchedRaids =
+      raidData[day].filter(raid => {
+
+        const allMembers = [
+
+          ...raid.dealers,
+          ...raid.supports
+
+        ];
+
+        return allMembers.some(member =>
+          member.includes(keyword)
+        );
+
+      });
+
+    if (matchedRaids.length === 0) return;
+
+    found = true;
+
+    const section =
+      document.createElement("div");
+
+    section.className =
+      "day-section";
+
+    section.innerHTML = `
+
+      <div class="day-header">
+
+        <h2 class="day-title">
+          📅 ${day}
+        </h2>
+
+      </div>
+
+    `;
+
+    const grid =
+      document.createElement("div");
+
+    grid.className =
+      "cards-container";
+
+    matchedRaids.forEach(raid => {
+
+      const card =
+        createSearchCard(
+          raid,
+          keyword
+        );
+
+      grid.appendChild(card);
+
+    });
+
+    section.appendChild(grid);
+
+    resultContainer.appendChild(section);
+
+  });
+
+  if (!found) {
+
+    resultContainer.innerHTML = `
+
+      <div class="empty-message">
+        검색 결과가 없습니다.
+      </div>
+
+    `;
+  }
+}
+
+/* 검색 카드 */
+function createSearchCard(
+  raid,
+  keyword
+) {
+
+  const card =
+    document.createElement("div");
+
+  card.className = "card";
+
+  const dealerHTML =
+    raid.dealers.map(member => {
+
+      const active =
+        member.includes(keyword)
+          ? "active-member"
+          : "";
+
+      return `
+
+        <div class="member dealer ${active}">
+          ${member}
+        </div>
+
+      `;
+
+    }).join("");
+
+  const supportHTML =
+    raid.supports.map(member => {
+
+      const active =
+        member.includes(keyword)
+          ? "active-member"
+          : "";
+
+      return `
+
+        <div class="member support ${active}">
+          ${member}
+        </div>
+
+      `;
+
+    }).join("");
+
+  card.innerHTML = `
+
+    <div class="card-header">
+
+      <div class="card-title">
+        🎮 ${raid.title}
+      </div>
+
+      <div class="raid-order">
+        ${raid.order}공대
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <div class="section-title">
+        ⚔️ 딜러 (${raid.dealers.length})
+      </div>
+
+      <div class="members">
+        ${dealerHTML}
+      </div>
+
+    </div>
+
+    <div class="section">
+
+      <div class="section-title">
+        💚 서포터 (${raid.supports.length})
+      </div>
+
+      <div class="members">
+        ${supportHTML}
+      </div>
+
+    </div>
+
+  `;
+
+  return card;
+}
+
+/* 시작 */
+loadData();
